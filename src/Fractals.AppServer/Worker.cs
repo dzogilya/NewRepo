@@ -35,7 +35,27 @@ public class Worker : BackgroundService
         _appServerId = _configuration["APP_SERVER_ID"] ?? Environment.MachineName;
         _concurrency = _configuration.GetValue<int>("APP_CONCURRENCY", 2);
         _cpuThreads = _configuration.GetValue<int>("APP_CPU_THREADS", Environment.ProcessorCount);
-        _storagePath = _configuration["STORAGE_PATH"] ?? Path.Combine(Directory.GetCurrentDirectory(), "storage");
+
+        if (!string.IsNullOrWhiteSpace(_configuration["STORAGE_PATH"]))
+        {
+            _storagePath = _configuration["STORAGE_PATH"]!;
+        }
+        else
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string root = Directory.GetCurrentDirectory();
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Fractals.slnx")) ||
+                    File.Exists(Path.Combine(dir.FullName, "docker-compose.yml")))
+                {
+                    root = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+            _storagePath = Path.Combine(root, "storage");
+        }
 
         _semaphore = new SemaphoreSlim(_concurrency, _concurrency);
     }

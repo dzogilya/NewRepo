@@ -3,6 +3,8 @@ using System.Threading.RateLimiting;
 using FluentValidation;
 using Fractals.Api.Middleware;
 using Fractals.Api.Services;
+using Fractals.AppServer;
+using Fractals.Core.Engine;
 using Fractals.Core.Models;
 using Fractals.Core.Validation;
 using Fractals.Data;
@@ -12,6 +14,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -19,47 +22,83 @@ using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Find solution root directory reliably
+static string FindSolutionRoot(string startDir)
+{
+    var current = new DirectoryInfo(startDir);
+    while (current != null)
+    {
+        if (File.Exists(Path.Combine(current.FullName, "Fractals.slnx")) ||
+            File.Exists(Path.Combine(current.FullName, "docker-compose.yml")))
+        {
+            return current.FullName;
+        }
+        current = current.Parent;
+    }
+    return startDir;
+}
+
+var solutionRoot = FindSolutionRoot(AppContext.BaseDirectory);
+var storagePath = Path.Combine(solutionRoot, "storage");
+Directory.CreateDirectory(storagePath);
+
+var sqliteDbPath = Path.Combine(storagePath, "fractals.db");
+
 // 1. Serilog Setup
 builder.Host.UseSerilog((context, services, configuration) => configuration
-    .ReadFrom.Configuration(context.Configuration)
-    .ReadFrom.Services(services)
     .Enrich.FromLogContext()
     .Enrich.WithProperty("InstanceId", context.Configuration["INSTANCE_ID"] ?? Environment.MachineName)
     .WriteTo.Console());
 
-// 2. Database Connection
-var connectionString = builder.Configuration.GetConnectionString("Database")
-    ?? "Host=localhost;Port=5432;Database=fractals_db;Username=postgres;Password=postgres_secure_password";
+// 2. Database Connection (Postgres in Docker / SQLite in local development)
+var rawConnection = builder.Configuration.GetConnectionString("Database");
+string connectionString;
+if (string.IsNullOrWhiteSpace(rawConnection) || rawConnection.Contains(".db") || rawConnection.Contains("sqlite", StringComparison.OrdinalIgnoreCase))
+{
+    connectionString = $"Data Source={sqliteDbPath}";
+}
+else
+{
+    connectionString = rawConnection;
+}
 
 builder.Services.AddDbContext<FractalsDbContext>(options =>
 {
-    options.UseNpgsql(connectionString)
-           .UseSnakeCaseNamingConvention();
+    if (connectionString.Contains("Data Source=", StringComparison.OrdinalIgnoreCase) && connectionString.Contains(".db"))
+    {
+        options.UseSqlite(connectionString);
+    }
+    else
+    {
+        options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention();
+    }
 });
 
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 
-// 3. Redis Connection & Data Protection
-var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
-IConnectionMultiplexer? redisMux = null;
-try
+// 3. Redis Connection & Data Protection (Graceful fallback if Redis is absent)
+var redisConnection = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrWhiteSpace(redisConnection))
 {
-    redisMux = ConnectionMultiplexer.Connect(new ConfigurationOptions
+    try
     {
-        EndPoints = { redisConnection },
-        AbortOnConnectFail = false,
-        ConnectTimeout = 3000
-    });
-    builder.Services.AddSingleton<IConnectionMultiplexer>(redisMux);
+        var redisMux = ConnectionMultiplexer.Connect(new ConfigurationOptions
+        {
+            EndPoints = { redisConnection },
+            AbortOnConnectFail = true,
+            ConnectTimeout = 1500
+        });
+        builder.Services.AddSingleton<IConnectionMultiplexer>(redisMux);
 
-    // Shared Data Protection keys across api1 and api2
-    builder.Services.AddDataProtection()
-        .SetApplicationName("FractalsApp")
-        .PersistKeysToStackExchangeRedis(redisMux, "DataProtection-Keys");
-}
-catch (Exception ex)
-{
-    Log.Warning(ex, "Redis недоступний при старті. Використовуються локальні DataProtection ключі.");
+        // Shared Data Protection keys across api1 and api2
+        builder.Services.AddDataProtection()
+            .SetApplicationName("FractalsApp")
+            .PersistKeysToStackExchangeRedis(redisMux, "DataProtection-Keys");
+    }
+    catch
+    {
+        Log.Information("Redis недоступний за адресою '{Endpoint}'. Використовується локальний кеш.", redisConnection);
+    }
 }
 
 // 4. Options and Validation
@@ -69,6 +108,13 @@ builder.Services.AddSingleton<FractalParametersValidator>();
 // 5. Application Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEtaService, EtaService>();
+builder.Services.AddSingleton<IFractalEngine, FractalEngine>();
+
+// In Development mode, also host Worker directly inside the web app for easy 1-click execution
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<Worker>();
+}
 
 // 6. Authentication (JWT + Cookie Fallback)
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "SuperSecretLongSecureKeyForJwtTokens1234567890!@#$";
@@ -92,7 +138,6 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 
-    // Extract token from cookie if not present in Authorization header
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -135,7 +180,7 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Fractals API", Version = "v1" });
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        Description = "JWT Authorization header using the Bearer scheme.",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -159,7 +204,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// 9. Database Auto-Migration with Postgres Advisory Lock
+// 9. Database Auto-Migration / EnsureCreated
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<FractalsDbContext>();
@@ -170,12 +215,11 @@ using (var scope = app.Services.CreateScope())
     {
         if (db.Database.IsNpgsql())
         {
-            // Acquire advisory lock 424242 so api1 and api2 don't collide
             await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_lock(424242);");
             try
             {
                 await db.Database.EnsureCreatedAsync();
-                logger.LogInformation("База даних перевірена та готова.");
+                logger.LogInformation("PostgreSQL база даних готова.");
             }
             finally
             {
@@ -185,6 +229,7 @@ using (var scope = app.Services.CreateScope())
         else
         {
             await db.Database.EnsureCreatedAsync();
+            logger.LogInformation("Локальна база даних (SQLite/InMemory) готова.");
         }
 
         // Seed Admin user
@@ -203,12 +248,12 @@ using (var scope = app.Services.CreateScope())
             };
             db.Users.Add(admin);
             await db.SaveChangesAsync();
-            logger.LogInformation("Створено адміністратора за замовчуванням: {Username}", adminUser);
+            logger.LogInformation("Створено адміністратора: {Username}", adminUser);
         }
     }
     catch (Exception ex)
     {
-        logger.LogWarning(ex, "Помилка при ініціалізації/міграції БД.");
+        logger.LogWarning(ex, "Помилка при ініціалізації БД.");
     }
 }
 
@@ -219,6 +264,33 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 });
 
 app.UseMiddleware<ServedByMiddleware>();
+
+// 11. Serve Frontend Static Files for Direct Local Run (without Nginx)
+var frontendPath = Path.Combine(solutionRoot, "frontend");
+if (!Directory.Exists(frontendPath))
+{
+    frontendPath = Path.Combine(builder.Environment.ContentRootPath, "frontend");
+}
+
+if (Directory.Exists(frontendPath))
+{
+    app.UseFileServer(new FileServerOptions
+    {
+        FileProvider = new PhysicalFileProvider(Path.GetFullPath(frontendPath)),
+        RequestPath = "",
+        EnableDefaultFiles = true
+    });
+}
+
+// Serve Storage for Images
+if (Directory.Exists(storagePath))
+{
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(Path.GetFullPath(storagePath)),
+        RequestPath = "/storage"
+    });
+}
 
 app.UseSwagger(c => c.RouteTemplate = "api/docs/{documentName}/swagger.json");
 app.UseSwaggerUI(c =>
@@ -231,7 +303,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 11. Health Check Endpoints
+// 12. Health Check Endpoints
 app.MapHealthChecks("/healthz");
 app.MapHealthChecks("/readyz");
 
@@ -239,5 +311,4 @@ app.MapControllers();
 
 app.Run();
 
-// For WebApplicationFactory in integration tests
 public partial class Program { }

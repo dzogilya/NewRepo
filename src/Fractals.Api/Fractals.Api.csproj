@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Fractals.Core\Fractals.Core.csproj" />
     <ProjectReference Include="..\Fractals.Data\Fractals.Data.csproj" />
+    <ProjectReference Include="..\Fractals.AppServer\Fractals.AppServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>

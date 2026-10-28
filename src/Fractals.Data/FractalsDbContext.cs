@@ -29,7 +29,11 @@ public class FractalsDbContext : DbContext
             entity.Property(e => e.Status).HasMaxLength(30).IsRequired();
             entity.Property(e => e.Stage).HasMaxLength(100).IsRequired();
             entity.Property(e => e.AppServerId).HasMaxLength(100);
-            entity.Property(e => e.Params).HasColumnType("jsonb");
+            
+            if (Database.IsNpgsql())
+            {
+                entity.Property(e => e.Params).HasColumnType("jsonb");
+            }
             entity.Property(e => e.RowVersion).IsRowVersion();
 
             entity.HasOne(e => e.User)
@@ -40,11 +44,29 @@ public class FractalsDbContext : DbContext
             entity.HasIndex(e => new { e.UserId, e.CreatedAt });
             entity.HasIndex(e => e.AppServerId);
 
-            // Partial index for ultra-fast task claims
-            entity.HasIndex(e => new { e.CreatedAt, e.Id })
-                  .HasFilter("status = 'QUEUED' AND app_server_id IS NULL AND is_canceled = false")
-                  .HasDatabaseName("ix_tasks_queued_claim");
+            // Partial index for ultra-fast task claims on PostgreSQL
+            if (Database.IsNpgsql())
+            {
+                entity.HasIndex(e => new { e.CreatedAt, e.Id })
+                      .HasFilter("status = 'QUEUED' AND app_server_id IS NULL AND is_canceled = false")
+                      .HasDatabaseName("ix_tasks_queued_claim");
+            }
         });
+
+        // Configure DateTimeOffset conversion for SQLite support in ORDER BY
+        if (Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                foreach (var property in entityType.GetProperties())
+                {
+                    if (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?))
+                    {
+                        property.SetValueConverter(new Microsoft.EntityFrameworkCore.Storage.ValueConversion.DateTimeOffsetToBinaryConverter());
+                    }
+                }
+            }
+        }
 
         // Users Configuration
         modelBuilder.Entity<UserEntity>(entity =>
