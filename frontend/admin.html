@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Панель адміністратора - Моніторинг та балансування</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      text-align: center;
+    }
+    .metric-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin: 0.5rem 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.875rem;
+    }
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      background-color: var(--bg-input);
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo-container">
+      <span style="font-size: 1.5rem;">⚙️</span>
+      <h1>Панель адміністратора (Admin Dashboard)</h1>
+    </div>
+    <div class="auth-nav">
+      <a href="/" class="btn btn-secondary" style="text-decoration: none;">← До візуалізатора</a>
+      <span id="adminName" style="color: var(--text-muted); font-size: 0.875rem;">Адміністратор</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Metrics Cards -->
+    <div class="metrics-row" id="metricsRow">
+      <div class="metric-card">
+        <div>В черзі</div>
+        <div class="metric-value" id="metricQueued">0</div>
+      </div>
+      <div class="metric-card">
+        <div>Виконується зараз</div>
+        <div class="metric-value" id="metricRunning" style="color: #60a5fa;">0</div>
+      </div>
+      <div class="metric-card">
+        <div>Успішно завершено</div>
+        <div class="metric-value" id="metricSuccess" style="color: var(--success);">0</div>
+      </div>
+      <div class="metric-card">
+        <div>Збої / Помилки</div>
+        <div class="metric-value" id="metricFailed" style="color: var(--danger);">0</div>
+      </div>
+      <div class="metric-card">
+        <div>Активних App-серверів</div>
+        <div class="metric-value" id="metricServers">0</div>
+      </div>
+    </div>
+
+    <!-- Active Servers Section -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <h2 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Стан серверів та розподіл навантаження</h2>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>ID Сервера</th>
+              <th>Тип</th>
+              <th>Статус</th>
+              <th>Активних задач</th>
+              <th>RAM (MB)</th>
+              <th>Останній Heartbeat</th>
+            </tr>
+          </thead>
+          <tbody id="serversTableBody">
+            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Завантаження списку серверів...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Scaling Events Section -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <h2 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Журнал автомасштабування (Autoscaler Events)</h2>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Час</th>
+              <th>Дія</th>
+              <th>Причина</th>
+              <th>Серверів до</th>
+              <th>Серверів після</th>
+            </tr>
+          </thead>
+          <tbody id="scalingTableBody">
+            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Немає зафіксованих подій масштабування.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- All Tasks Section -->
+    <div class="card">
+      <h2 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Всі задачі користувачів</h2>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Користувач</th>
+              <th>Тип</th>
+              <th>Стан</th>
+              <th>Прогрес</th>
+              <th>Сервер</th>
+              <th>Створено</th>
+              <th>Дії</th>
+            </tr>
+          </thead>
+          <tbody id="allTasksTableBody">
+            <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Завантаження задач...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="/js/admin.js"></script>
+</body>
+</html>

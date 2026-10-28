@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Fractals.Api/Fractals.Api.csproj" />
+    <Project Path="src/Fractals.AppServer/Fractals.AppServer.csproj" />
+    <Project Path="src/Fractals.Autoscaler/Fractals.Autoscaler.csproj" />
+    <Project Path="src/Fractals.Core/Fractals.Core.csproj" />
+    <Project Path="src/Fractals.Data/Fractals.Data.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Fractals.IntegrationTests/Fractals.IntegrationTests.csproj" />
+    <Project Path="tests/Fractals.UnitTests/Fractals.UnitTests.csproj" />
+  </Folder>
+</Solution>
