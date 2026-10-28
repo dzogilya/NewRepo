@@ -10,3 +10,4 @@ public interface IEtaService
 {
     Task<QueueEtaInfo> CalculateEtaAsync(Guid taskId, CancellationToken cancellationToken = default);
 }
+

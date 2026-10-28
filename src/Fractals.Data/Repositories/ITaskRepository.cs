@@ -18,3 +18,4 @@ public interface ITaskRepository
     Task<int> GetHistoryCountForUserAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<int> GetGlobalQueueLengthAsync(CancellationToken cancellationToken = default);
 }
+

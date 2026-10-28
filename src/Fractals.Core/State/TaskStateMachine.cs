@@ -32,3 +32,4 @@ public class TaskStateMachine
     public static bool IsTerminal(TaskStatus status) =>
         status is TaskStatus.Success or TaskStatus.Failed or TaskStatus.Cancelled;
 }
+

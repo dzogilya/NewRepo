@@ -52,3 +52,4 @@ foreach ($tid in $taskIds) {
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host " Демонстрація успішно завершена!" -ForegroundColor Cyan
+

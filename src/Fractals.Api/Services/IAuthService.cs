@@ -14,3 +14,4 @@ public interface IAuthService
     bool VerifyPassword(string password, string hash);
     string GenerateJwt(UserEntity user);
 }
+

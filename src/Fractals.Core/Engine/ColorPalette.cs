@@ -53,3 +53,4 @@ public static class ColorPalette
         return SKColor.FromHsv((float)h, 100, 100);
     }
 }
+

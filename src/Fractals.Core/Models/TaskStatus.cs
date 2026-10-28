@@ -19,3 +19,4 @@ public static class TaskStage
     public const string Cancelled = "Скасовано";
     public const string Failed = "Помилка";
 }
+

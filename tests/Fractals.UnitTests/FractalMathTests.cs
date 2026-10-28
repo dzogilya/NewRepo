@@ -103,3 +103,4 @@ public class FractalMathTests
         result.ActualIterations.Should().BeGreaterThan(0);
     }
 }
+

@@ -16,3 +16,4 @@ public class CalculationLimits
     public int MaxQueueLength { get; set; } = 100;
     public int MaxTaskSeconds { get; set; } = 120;
 }
+

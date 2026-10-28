@@ -277,3 +277,4 @@ canvas {
 .badge-queued { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
 .badge-failed { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
 .badge-cancelled { background: rgba(148, 163, 184, 0.2); color: var(--text-muted); }
+

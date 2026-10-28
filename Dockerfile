@@ -53,3 +53,4 @@ FROM mcr.microsoft.com/dotnet/runtime:8.0 AS autoscaler
 WORKDIR /app
 COPY --from=publish-autoscaler /app/publish/autoscaler .
 ENTRYPOINT ["dotnet", "Fractals.Autoscaler.dll"]
+

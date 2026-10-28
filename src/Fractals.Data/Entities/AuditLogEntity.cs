@@ -8,3 +8,4 @@ public class AuditLogEntity
     public string Details { get; set; } = string.Empty;
     public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.UtcNow;
 }
+

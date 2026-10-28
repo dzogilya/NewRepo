@@ -419,3 +419,4 @@ public class TasksController : ControllerBase
         return File(stream, "image/png");
     }
 }
+

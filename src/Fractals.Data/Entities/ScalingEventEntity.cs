@@ -9,3 +9,4 @@ public class ScalingEventEntity
     public int ServerCountBefore { get; set; }
     public int ServerCountAfter { get; set; }
 }
+

@@ -67,3 +67,4 @@ public class EtaService : IEtaService
         return new QueueEtaInfo(position, pendingCost, estimatedSeconds, humanEta);
     }
 }
+

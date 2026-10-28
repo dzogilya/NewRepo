@@ -1,7 +1,7 @@
 # Матриця трасування вимог (Requirements Traceability Matrix)
 
 | № | Вимога завдання | Де реалізовано в коді | Як перевірити вручну за 1 хвилину | Автотести |
-|:---|:---|:---|:---|:---|
+| :--- | :--- | :--- | :--- | :--- |
 | **1.1** | Обмеження трудомісткості задачі (Cost, розміри, ітерації) | `Fractals.Core/Validation/FractalParametersValidator.cs`, `Fractals.Core/Models/CalculationLimits.cs` | Ввести у формі `Width=4000` або `MaxIterations=10000` -> кнопка блокується; через `curl` -> HTTP 422 | `LimitsValidationTests.ExceedingMaxCost_ShouldFailWithUkrainianMessage`, `LimitsValidationTests.DimensionsOutOfRange_ShouldFail` |
 | **1.2** | Жорсткий ліміт часу виконання (`MaxTaskSeconds`) | `Fractals.AppServer/Worker.cs` (`CancelAfter`) | Запустити задачу з максимальними параметрами на 1 сервері -> примусово переривається зі статусом `Failed` і `error_code=TIME_LIMIT_EXCEEDED` | `WorkerExecutionTests.TaskExceedingTimeLimit_FailsWithTimeout` |
 | **2.1** | Інформування про хід виконання (відсоток, етап) | `Fractals.Core/Engine/FractalEngine.cs`, `Fractals.Data/Repositories/TaskRepository.cs`, SSE endpoint | Спостерігати плавний прогрес-бар у реальному часі та рядок `Обчислення рядків (X / Y)` | `TaskRepositoryTests.UpdateHeartbeatAndProgressAsync` |

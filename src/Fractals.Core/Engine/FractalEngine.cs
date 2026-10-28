@@ -177,3 +177,4 @@ public class FractalEngine : IFractalEngine
         return iter + 1.0 - nu;
     }
 }
+

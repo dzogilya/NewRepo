@@ -48,3 +48,4 @@ public class StateMachineTests
         TaskStateMachine.IsTerminal(status).Should().Be(expected);
     }
 }
+

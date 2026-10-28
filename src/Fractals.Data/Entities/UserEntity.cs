@@ -10,3 +10,4 @@ public class UserEntity
 
     public ICollection<TaskEntity> Tasks { get; set; } = new List<TaskEntity>();
 }
+

@@ -13,7 +13,9 @@ docker compose up --build -d
 # 2. Перевірка стану здоров'я контейнерів
 docker compose ps
 ```
+
 **Що показати викладачу:**
+
 - Усі контейнери мають статус `healthy` або `running`.
 - Nginx перенаправляє HTTP (порт 80) на захищений HTTPS (порт 443).
 - Відкриваємо в браузері `https://localhost`. Сертифікат самопідписаний (створений автоматично контейнером `init-certs`).
@@ -23,12 +25,15 @@ docker compose ps
 ## 2. Балансування запитів Web Server (`X-Served-By`) (1 хв)
 
 Виконуємо кілька швидких запитів до API:
+
 ```bash
 curl -k -i https://localhost/api/healthz | grep -i X-Served-By
 curl -k -i https://localhost/api/healthz | grep -i X-Served-By
 curl -k -i https://localhost/api/healthz | grep -i X-Served-By
 ```
+
 **Що показати викладачу:**
+
 - Заголовок `X-Served-By` чергується між `api-node-1` та `api-node-2`, доводячи роботу Nginx алгоритму `least_conn`.
 
 ---
@@ -39,10 +44,12 @@ curl -k -i https://localhost/api/healthz | grep -i X-Served-By
 2. Відкриваємо приватне вікно браузера, реєструємо `student2`.
 3. Користувач `student1` створює задачу.
 4. Пробуємо з вікна `student2` скасувати або переглянути задачу `student1` за прямим посиланням:
+
    ```bash
    curl -k -X POST https://localhost/api/tasks/<task-id-student1>/cancel \
      -H "Authorization: Bearer <token-student2>"
    ```
+
    **Результат:** HTTP 403 Forbidden. Захист від IDOR підтверджено.
 
 ---
@@ -53,12 +60,14 @@ curl -k -i https://localhost/api/healthz | grep -i X-Served-By
    - У формі вводимо `Width = 3000`, `Height = 3000`, `MaxIterations = 4000`.
    - Індикатор стає червоним: *«Перевищено допустимий ліміт (Cost > 500,000,000)»*. Кнопка «Запустити» блокується.
 2. **Серверний рівень (обхід клієнта через curl)**:
+
    ```bash
    curl -k -X POST https://localhost/api/tasks \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer <token>" \
      -d '{"type":0,"width":3000,"height":3000,"maxIterations":4000}'
    ```
+
    **Результат:** HTTP 422 Unprocessable Entity з чітким повідомленням українською мовою.
 
 ---
@@ -70,9 +79,11 @@ curl -k -i https://localhost/api/healthz | grep -i X-Served-By
 3. **Демонстрація скасування**:
    - Натискаємо червону кнопку **«Скасувати задачу»**.
    - Перевіряємо в базі даних:
+
      ```bash
      docker compose exec postgres psql -U postgres -d fractals_db -c "SELECT id, status, is_canceled, app_server_id FROM tasks ORDER BY created_at DESC LIMIT 1;"
      ```
+
    - Бачимо `is_canceled = true`, `status = Cancelled`.
    - У `docker stats` навантаження на процесор моментально падає до 0%.
 
@@ -81,14 +92,19 @@ curl -k -i https://localhost/api/healthz | grep -i X-Served-By
 ## 6. Балансування задач між App-серверами та черга з ETA (Пункт 5 і 6) (3 хв)
 
 Запускаємо автоматичний скрипт балансування:
+
 ```bash
 ./scripts/demo_balancing.sh
 ```
+
 Або в PowerShell:
+
 ```powershell
 .\scripts\demo_balancing.ps1
 ```
+
 **Що показати викладачу:**
+
 - Запускаються 4 задачі.
 - `app-node-1` та `app-node-2` захоплюють задачі одночасно через атомарний `FOR UPDATE SKIP LOCKED`.
 - Наступні задачі стають у чергу зі статусом:
@@ -101,9 +117,11 @@ curl -k -i https://localhost/api/healthz | grep -i X-Served-By
 
 1. Запускаємо важку задачу.
 2. Коли задача починає обчислюватись на `app-node-1`, зупиняємо цей контейнер:
+
    ```bash
    docker stop fractals-app-1
    ```
+
 3. Через ~15 секунд Watchdog (фонова служба лідера) фіксує відсутність `heartbeat_at`, скидає задачу назад у `Queued` (`app_server_id = NULL`).
 4. `app-node-2` автоматично підхоплює задачу та дораховує її до успішного результату.
 

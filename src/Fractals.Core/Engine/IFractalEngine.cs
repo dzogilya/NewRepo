@@ -20,3 +20,4 @@ public record FractalResult(
     byte[] ThumbnailPng,
     TimeSpan Elapsed,
     long ActualIterations);
+

@@ -248,3 +248,4 @@ public class TaskRepository : ITaskRepository
             .CountAsync(t => t.Status == "Queued", cancellationToken);
     }
 }
+

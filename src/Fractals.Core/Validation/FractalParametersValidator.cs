@@ -41,3 +41,4 @@ public class FractalParametersValidator : AbstractValidator<FractalParameters>
             .WithMessage($"Загальна трудомісткість задачі перевищує встановлений ліміт ({limits.MaxCost:#,##0} операцій). Зменшіть розмір або кількість ітерацій.");
     }
 }
+

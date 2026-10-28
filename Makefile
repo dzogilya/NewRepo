@@ -20,3 +20,4 @@ demo:
 
 clean:
 	dotnet clean Fractals.slnx
+
