@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HeatLab — вхід</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <form class="card login" id="form">
+    <h2 id="title">Вхід</h2>
+
+    <label for="username">Ім'я користувача</label>
+    <input id="username" required minlength="3">
+
+    <label for="password" class="gap">Пароль</label>
+    <input id="password" type="password" required>
+
+    <button class="primary wide" type="submit" id="submitBtn">Увійти</button>
+    <p class="error" id="error"></p>
+    <p class="hint"><a href="#" id="switchLink">Немає акаунта? Зареєструватися</a></p>
+    <p class="hint" id="adminHint">Адміністратор: admin / admin123</p>
+  </form>
+
+  <script src="/js/api.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    let reg = false;
+
+    $('switchLink').onclick = e => {
+      e.preventDefault();
+      reg = !reg;
+      $('title').textContent = reg ? 'Реєстрація' : 'Вхід';
+      $('submitBtn').textContent = reg ? 'Зареєструватися' : 'Увійти';
+      $('switchLink').textContent = reg ? 'Вже є акаунт? Увійти' : 'Немає акаунта? Зареєструватися';
+      $('adminHint').hidden = reg;
+      $('error').textContent = '';
+    };
+
+    $('form').onsubmit = async e => {
+      e.preventDefault();
+      $('submitBtn').disabled = true;
+      const res = await api(`/api/auth/${reg ? 'register' : 'login'}`, 'POST', {
+        username: $('username').value,
+        password: $('password').value
+      });
+      $('submitBtn').disabled = false;
+      if (res.ok) location.href = '/';
+      else $('error').textContent = res.data?.message || `Помилка ${res.status}`;
+    };
+  </script>
+</body>
+</html>

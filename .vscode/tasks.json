@@ -2,31 +2,24 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build",
-      "command": "dotnet",
+      "label": "stop-heatlab",
       "type": "process",
+      "command": "powershell.exe",
       "args": [
-        "build",
-        "${workspaceFolder}/src/Fractals.Api/Fractals.Api.csproj",
-        "/property:GenerateFullPaths=true",
-        "/consoleloggerparameters:NoSummary"
+        "-NoProfile",
+        "-Command",
+        "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'HeatLab.exe' -or ($_.Name -eq 'dotnet.exe' -and $_.CommandLine -match 'HeatLab\\.(dll|exe)') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; exit 0"
       ],
-      "problemMatcher": "$msCompile",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      }
+      "presentation": { "reveal": "silent" },
+      "problemMatcher": []
     },
     {
-      "label": "build-all",
-      "command": "dotnet",
+      "label": "build-heatlab",
       "type": "process",
-      "args": [
-        "build",
-        "${workspaceFolder}/Fractals.slnx",
-        "/property:GenerateFullPaths=true",
-        "/consoleloggerparameters:NoSummary"
-      ],
+      "command": "dotnet",
+      "args": ["build", "${workspaceFolder}/src/HeatLab/HeatLab.csproj", "-nologo", "-v", "q"],
+      "dependsOn": "stop-heatlab",
+      "presentation": { "reveal": "silent" },
       "problemMatcher": "$msCompile"
     }
   ]

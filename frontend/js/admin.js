@@ -1,157 +1,59 @@
-// Admin Dashboard Script (ES Module)
+const $ = id => document.getElementById(id);
 
-document.addEventListener('DOMContentLoaded', async () => {
-  window.cancelAdminTask = cancelAdminTask;
-  await checkAdminAuth();
-  loadAllData();
-  setInterval(loadAllData, 3000); // 3-second live refresh
-});
+const SERVER_UA = {
+  Free: 'вільний',
+  Busy: 'рахує',
+  Starting: 'запускається'
+};
 
-async function checkAdminAuth() {
-  try {
-    const res = await fetch('/api/auth/me');
-    if (!res.ok) {
-      window.location.href = '/';
-      return;
-    }
-    const user = await res.json();
-    if (user.role !== 'admin') {
-      alert("Доступ дозволено виключно адміністраторам.");
-      window.location.href = '/';
-      return;
-    }
-    document.getElementById('adminName').textContent = `Адміністратор: ${user.username}`;
-  } catch {
-    window.location.href = '/';
+async function refresh() {
+  const res = await api('/api/admin');
+  if (res.status === 401) { location.href = '/login.html'; return; }
+  if (res.status === 403) { $('error').textContent = 'Ця сторінка лише для адміністратора.'; return; }
+  if (!res.ok) return;
+  const d = res.data;
+
+  const load = d.servers.length ? Math.round(100 * d.busyServers / d.servers.length) : 0;
+  $('counters').innerHTML = `
+    <div>Серверів<b>${d.servers.length}</b><span class="hint">максимум ${d.maxServers}</span></div>
+    <div>Навантаження<b>${load}%</b><span class="hint">зайнято ${d.busyServers} з ${d.servers.length}</span></div>
+    <div>У черзі<b>${d.queued}</b><span class="hint">максимум ${d.maxQueue}</span></div>
+    <div>Рахуються<b>${d.running}</b></div>
+    <div>Готово<b>${d.success}</b></div>
+    <div>Помилок<b>${d.failed}</b></div>
+    <div>Скасовано<b>${d.cancelled}</b></div>`;
+
+  $('servers').innerHTML = d.servers.map(s => `<tr>
+    <td>${esc(s.id)}</td>
+    <td>${s.port}</td>
+    <td>${s.pid}</td>
+    <td>${s.isExtra ? 'додатковий' : 'базовий'}</td>
+    <td class="server-${s.status}">${SERVER_UA[s.status]}</td>
+    <td>${s.currentTaskId ? '#' + s.currentTaskId : '—'}</td>
+    <td>${s.tasksDone}</td>
+    <td>${formatTime(s.startedAt)}</td>
+  </tr>`).join('');
+
+  $('tasks').innerHTML = d.tasks.map(t => `<tr>
+    <td>${t.id}</td>
+    <td>${esc(t.username)}</td>
+    <td>${Number(t.cost).toLocaleString('uk-UA')}</td>
+    <td class="status-${t.status}">${STATUS_UA[t.status]}</td>
+    <td>${t.progress}%</td>
+    <td>${esc(t.serverId || '')}</td>
+    <td>${formatTime(t.createdAt)}</td>
+    <td>${t.status === 'Queued' || t.status === 'Running'
+      ? `<button class="small" data-cancel="${t.id}">Скасувати</button>` : ''}</td>
+  </tr>`).join('');
+}
+
+$('tasks').onclick = async e => {
+  const id = e.target.dataset.cancel;
+  if (id) {
+    await api(`/api/admin/tasks/${id}/cancel`, 'POST');
+    refresh();
   }
-}
+};
 
-async function loadAllData() {
-  await Promise.all([
-    loadMetrics(),
-    loadServers(),
-    loadScalingEvents(),
-    loadAllTasks()
-  ]);
-}
-
-async function loadMetrics() {
-  try {
-    const res = await fetch('/api/admin/metrics');
-    if (res.ok) {
-      const data = await res.json();
-      document.getElementById('metricQueued').textContent = data.queuedCount;
-      document.getElementById('metricRunning').textContent = data.runningCount;
-      document.getElementById('metricSuccess').textContent = data.successCount;
-      document.getElementById('metricFailed').textContent = data.failedCount;
-      document.getElementById('metricServers').textContent = data.activeAppServers;
-    }
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function loadServers() {
-  try {
-    const res = await fetch('/api/admin/servers');
-    if (res.ok) {
-      const servers = await res.json();
-      const tbody = document.getElementById('serversTableBody');
-
-      if (!servers || servers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Немає підключених серверів.</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = servers.map(s => `
-        <tr>
-          <td><strong>${s.serverId}</strong></td>
-          <td>${s.serverType || 'AppServer'}</td>
-          <td><span class="badge badge-success">${s.status || 'Alive'}</span></td>
-          <td>${s.activeTasks ?? 0}</td>
-          <td>${s.ramUsageMb ?? '—'} MB</td>
-          <td>${s.lastHeartbeat ? new Date(s.lastHeartbeat).toLocaleTimeString('uk-UA') : '—'}</td>
-        </tr>
-      `).join('');
-    }
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function loadScalingEvents() {
-  try {
-    const res = await fetch('/api/admin/scaling-events');
-    if (res.ok) {
-      const events = await res.json();
-      const tbody = document.getElementById('scalingTableBody');
-
-      if (!events || events.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Немає зафіксованих подій масштабування.</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = events.map(e => `
-        <tr>
-          <td>${new Date(e.timestamp).toLocaleString('uk-UA')}</td>
-          <td><span class="badge ${e.action === 'SCALE_UP' ? 'badge-running' : 'badge-queued'}">${e.action}</span></td>
-          <td>${e.reason}</td>
-          <td>${e.serverCountBefore}</td>
-          <td><strong>${e.serverCountAfter}</strong></td>
-        </tr>
-      `).join('');
-    }
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function loadAllTasks() {
-  try {
-    const res = await fetch('/api/admin/tasks?pageSize=15');
-    if (res.ok) {
-      const data = await res.json();
-      const tbody = document.getElementById('allTasksTableBody');
-
-      if (!data.items || data.items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Немає задач.</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = data.items.map(t => `
-        <tr>
-          <td style="font-family: monospace; font-size: 0.75rem;">${t.id.substring(0, 8)}...</td>
-          <td>${t.username}</td>
-          <td>${t.type}</td>
-          <td><span class="badge badge-${t.status.toLowerCase()}">${t.stage}</span></td>
-          <td>${t.progress}%</td>
-          <td>${t.appServerId || '—'}</td>
-          <td>${new Date(t.createdAt).toLocaleTimeString('uk-UA')}</td>
-          <td>
-            ${t.status === 'Running' || t.status === 'Queued'
-              ? `<button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="cancelAdminTask('${t.id}')">Зупинити</button>`
-              : '—'}
-          </td>
-        </tr>
-      `).join('');
-    }
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function cancelAdminTask(taskId) {
-  if (!confirm(`Примусово скасувати задачу ${taskId.substring(0, 8)}?`)) return;
-
-  try {
-    const res = await fetch(`/api/admin/tasks/${taskId}/cancel`, { method: 'POST' });
-    if (res.ok) {
-      loadAllData();
-    } else {
-      alert("Не вдалося скасувати задачу.");
-    }
-  } catch (err) {
-    alert("Помилка запиту.");
-  }
-}
-
+refresh();
+setInterval(refresh, 2000);

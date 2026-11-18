@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/HeatLab/HeatLab.csproj" />
+  <Project Path="tests/HeatLab.Tests/HeatLab.Tests.csproj" />
+</Solution>

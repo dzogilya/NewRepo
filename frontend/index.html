@@ -3,194 +3,67 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Візуалізатор фракталів з балансуванням навантаження</title>
+  <title>HeatLab</title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <header>
-    <div class="logo-container">
-      <span style="font-size: 1.5rem;">🌀</span>
-      <h1>Fractals Load Balancer (.NET 8)</h1>
-    </div>
-    <div class="auth-nav" id="authNav">
-      <span id="userInfo" style="font-size: 0.875rem; color: var(--text-muted); display: none;"></span>
-      <a href="/admin.html" id="adminLink" class="btn btn-secondary" style="display: none; text-decoration: none;">Панель адміністратора</a>
-      <button class="btn btn-primary" id="loginBtn" onclick="openAuthModal('login')">Увійти</button>
-      <button class="btn btn-secondary" id="registerBtn" onclick="openAuthModal('register')">Реєстрація</button>
-      <button class="btn btn-danger" id="logoutBtn" style="display: none;" onclick="logout()">Вийти</button>
-    </div>
+    <h1>Heat<span>Lab</span> — теплопровідність пластини</h1>
+    <span class="pill" id="userName"></span>
+    <a href="/admin.html" class="btn hidden" id="adminLink">Адмін-панель</a>
+    <button onclick="logout()">Вийти</button>
   </header>
 
   <main>
-    <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('workspace')">Робоча область</button>
-      <button class="tab-btn" onclick="switchTab('history')">Історія результатів</button>
+    <div class="card">
+      <h2>Нова задача</h2>
+      <div class="grid">
+        <div><label for="size">Розмір сітки N (N×N)</label><input id="size" type="number" value="200" min="10" max="1000"></div>
+        <div><label for="iterations">Ітерацій K</label><input id="iterations" type="number" value="5000" min="10" max="50000"></div>
+        <div><label for="top">Верхній край, °C</label><input id="top" type="number" value="100" min="-273" max="5000"></div>
+        <div><label for="bottom">Нижній край, °C</label><input id="bottom" type="number" value="0" min="-273" max="5000"></div>
+        <div><label for="left">Лівий край, °C</label><input id="left" type="number" value="0" min="-273" max="5000"></div>
+        <div><label for="right">Правий край, °C</label><input id="right" type="number" value="0" min="-273" max="5000"></div>
+      </div>
+      <p class="hint">
+        Обмеження: N від 10 до 1000, K від 10 до 50 000, N·N·K ≤ 20 000 000 000, температури від −273 до 5000 °C,
+        не більше 5 активних задач. Якщо всі сервери зайняті, задача стає в чергу (до 4 задач), далі — відмова.
+      </p>
+      <div class="row">
+        <button class="primary" id="startBtn">Запустити розрахунок</button>
+      </div>
+      <p class="info" id="formInfo"></p>
+      <p class="error" id="formError"></p>
     </div>
 
-    <!-- TAB 1: WORKSPACE -->
-    <div id="tabWorkspace">
-      <!-- Active Task Progress Banner -->
-      <div id="activeProgressBanner" class="progress-banner" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <strong id="bannerStage">Обчислення...</strong>
-            <span id="bannerEta" style="color: var(--text-muted); font-size: 0.8125rem; margin-left: 0.75rem;"></span>
-          </div>
-          <button class="btn btn-danger" id="cancelTaskBtn" onclick="cancelCurrentTask()">Скасувати задачу</button>
-        </div>
-        <div class="progress-bar-bg">
-          <div id="bannerProgressBar" class="progress-bar-fill"></div>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
-          <span id="bannerServerId">Сервер: очікування...</span>
-          <span id="bannerProgressText">0%</span>
-        </div>
+    <div class="card">
+      <h2>Мої задачі</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Сітка</th><th>K</th><th>Стан</th><th>Прогрес</th><th>Де / черга</th><th></th></tr>
+          </thead>
+          <tbody id="tasks"></tbody>
+        </table>
       </div>
-
-      <div class="grid-workspace">
-        <!-- Controls Sidebar -->
-        <div class="card">
-          <h2 style="font-size: 1.1rem; margin-bottom: 1rem;">Параметри обчислення</h2>
-          
-          <div class="form-group">
-            <label for="fractalType">Тип фрактала</label>
-            <select id="fractalType" onchange="onTypeChanged()">
-              <option value="0">Множина Мандельброта</option>
-              <option value="1">Множина Жюліа</option>
-            </select>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-            <div class="form-group">
-              <label for="imgWidth">Ширина (px)</label>
-              <input type="number" id="imgWidth" value="800" min="100" max="3000" oninput="updateCostMeter()">
-            </div>
-            <div class="form-group">
-              <label for="imgHeight">Висота (px)</label>
-              <input type="number" id="imgHeight" value="600" min="100" max="3000" oninput="updateCostMeter()">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="maxIter">Макс. ітерацій (max_iter)</label>
-            <input type="number" id="maxIter" value="250" min="10" max="5000" oninput="updateCostMeter()">
-          </div>
-
-          <!-- Real-time Cost Estimation Meter -->
-          <div id="costMeter" class="cost-meter cost-green">
-            <div>Оцінена трудомісткість: <strong id="costValue">120,000,000</strong> оп.</div>
-            <div id="costStatusText" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">В межах допустимого ліміту</div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-            <div class="form-group">
-              <label for="centerX">Центр X</label>
-              <input type="number" id="centerX" value="-0.7" step="any">
-            </div>
-            <div class="form-group">
-              <label for="centerY">Центр Y</label>
-              <input type="number" id="centerY" value="0.0" step="any">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="zoom">Масштаб (Zoom)</label>
-            <input type="number" id="zoom" value="1.0" step="0.1" min="0.01">
-          </div>
-
-          <!-- Julia specific parameters -->
-          <div id="juliaParams" style="display: none; border-top: 1px solid var(--border); padding-top: 0.75rem; margin-top: 0.75rem;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-              <div class="form-group">
-                <label for="cRe">Константа C (Re)</label>
-                <input type="number" id="cRe" value="-0.7" step="0.01">
-              </div>
-              <div class="form-group">
-                <label for="cIm">Константа C (Im)</label>
-                <input type="number" id="cIm" value="0.27015" step="0.01">
-              </div>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="palette">Колірна палітра</label>
-            <select id="palette">
-              <option value="0">Classic Blue/Gold</option>
-              <option value="1">Fire Gradient</option>
-              <option value="2">Electric Blue Neon</option>
-              <option value="3">Full Rainbow</option>
-            </select>
-          </div>
-
-          <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
-            <input type="checkbox" id="smooth" checked style="width: auto;">
-            <label for="smooth" style="margin-bottom: 0; cursor: pointer;">Згладжені кольори (Smooth coloring)</label>
-          </div>
-
-          <button class="btn btn-primary" id="startBtn" style="width: 100%; padding: 0.75rem;" onclick="startCalculation()">Запустити обчислення</button>
-        </div>
-
-        <!-- Viewport & Canvas -->
-        <div class="card" style="display: flex; flex-direction: column;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-            <h2 style="font-size: 1.1rem;">Перегляд фрактала</h2>
-            <div style="display: flex; gap: 0.5rem;">
-              <button class="btn btn-secondary" onclick="resetView()">Скинути масштаб</button>
-              <button class="btn btn-secondary" id="downloadBtn" style="display: none;" onclick="downloadImage()">Завантажити PNG</button>
-            </div>
-          </div>
-
-          <div class="viewport-canvas-container" id="canvasContainer">
-            <canvas id="fractalCanvas" width="800" height="600" onclick="onCanvasClick(event)"></canvas>
-            <div id="canvasPlaceholder" style="color: var(--text-muted); font-size: 0.875rem;">
-              Натисніть «Запустити обчислення» для старту задачі. Клік на зображенні наближує точку.
-            </div>
-          </div>
-        </div>
-      </div>
+      <p class="hint" id="noTasks">Задач ще немає.</p>
     </div>
 
-    <!-- TAB 2: HISTORY -->
-    <div id="tabHistory" style="display: none;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h2 style="font-size: 1.1rem;">Історія ваших задач</h2>
-        <select id="historyFilter" style="width: 200px;" onchange="loadHistory()">
-          <option value="">Всі статуси</option>
-          <option value="Success">Успішні</option>
-          <option value="Running">В процесі</option>
-          <option value="Queued">В черзі</option>
-          <option value="Cancelled">Скасовані</option>
-          <option value="Failed">Помилки</option>
-        </select>
-      </div>
-
-      <div class="history-grid" id="historyGrid">
-        <!-- Rendered by app.js -->
+    <div class="card hidden" id="resultCard">
+      <h2 id="resultTitle">Результат</h2>
+      <div class="result">
+        <div>
+          <canvas id="resultCanvas"></canvas>
+          <canvas id="legend"></canvas>
+          <div class="legend-labels hint"><span id="legendMin"></span><span id="legendMax"></span></div>
+        </div>
+        <div id="resultStats"></div>
       </div>
     </div>
   </main>
 
-  <!-- Auth Modal -->
-  <div id="authModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000;">
-    <div class="card" style="width: 360px; max-width: 90%;">
-      <h3 id="modalTitle" style="margin-bottom: 1rem;">Вхід</h3>
-      <div class="form-group">
-        <label for="modalUsername">Ім'я користувача</label>
-        <input type="text" id="modalUsername">
-      </div>
-      <div class="form-group">
-        <label for="modalPassword">Пароль</label>
-        <input type="password" id="modalPassword">
-      </div>
-      <div id="modalError" style="color: var(--danger); font-size: 0.8125rem; margin-bottom: 0.75rem; display: none;"></div>
-      <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-        <button class="btn btn-secondary" onclick="closeAuthModal()">Скасувати</button>
-        <button class="btn btn-primary" id="modalSubmitBtn" onclick="submitAuth()">Підтвердити</button>
-      </div>
-    </div>
-  </div>
-
-  <script type="module" src="/js/app.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/heatmap.js"></script>
+  <script src="/js/app.js"></script>
 </body>
 </html>
-

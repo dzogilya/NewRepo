@@ -2,36 +2,15 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Запустити Fractals Web (F5)",
+      "name": "HeatLab — запустити сайт",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/Fractals.Api/bin/Debug/net8.0/Fractals.Api.dll",
+      "preLaunchTask": "build-heatlab",
+      "program": "${workspaceFolder}/src/HeatLab/bin/Debug/net8.0/HeatLab.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/src/Fractals.Api",
-      "stopAtEntry": false,
-      "serverReadyAction": {
-        "action": "openExternally",
-        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
-      },
-      "env": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      },
-      "sourceFileMap": {
-        "/Views": "${workspaceFolder}/Views"
-      }
-    },
-    {
-      "name": "Запустити AppServer Worker",
-      "type": "coreclr",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/Fractals.AppServer/bin/Debug/net8.0/Fractals.AppServer.dll",
-      "args": [],
-      "cwd": "${workspaceFolder}/src/Fractals.AppServer",
-      "stopAtEntry": false,
-      "env": {
-        "DOTNET_ENVIRONMENT": "Development"
-      }
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
     }
   ]
 }
